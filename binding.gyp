@@ -1,0 +1,65 @@
+{
+  "targets":
+  [
+    {
+      "target_name": "cec",
+      "sources":
+      [
+        "cec/hello.cc"
+      ],
+      "include_dirs":
+      [
+        "cec/libcec/include"
+      ],
+      "variables":
+      {
+        "dir_cec": "cec/libcec",
+        "arch": "<!(['node', '-e', 'const os = require(`os`); console.log(os.arch());'])"
+      },
+      "conditions":
+      [
+        [
+          "OS=='win'",
+          {
+            "conditions":
+            [
+              [
+                "arch=='x64'",
+                { # x64
+                  "link_settings":
+                  {
+                    "libraries":
+                    [
+                      "-lcec",
+                      "-lp8-platform"
+                    ],
+                    "library_dirs":
+                    [
+                      "<(dir_cec)/windows/amd64",
+                      "<(dir_cec)/windows/amd64/lib"
+                    ]
+                  }
+                },
+                { # x86
+                  "link_settings":
+                  {
+                    "libraries":
+                    [
+                      "-lcec",
+                      "-lp8-platform1"
+                    ],
+                    "library_dirs":
+                    [
+                      "<(dir_cec)/windows/x86",
+                      "<(dir_cec)/windows/x86/lib"
+                    ]
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      ]
+    }
+  ]
+}
