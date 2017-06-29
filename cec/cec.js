@@ -11,6 +11,10 @@ const fs = require("fs");
 const child_process = require("child_process");
 const parseCmd = require("./command-map");
 
+const libcec = require("../build/Release/libcec");
+
+libcec.hello();
+
 var
     cecProcess,         // cec process
     cecEmitter,         // cec event emitter

@@ -4,8 +4,12 @@
   "version": "2.7.9",
   "description": "Emby Theater for Electron",
   "main": "main.js",
+  "engines": {
+    "node": "7.10.0"
+  },
   "scripts": {
-    "start": "electron main.js"
+    "start": "electron main.js",
+    "build": "node-gyp rebuild --target=1.4.16 --arch=x64 --dist-url=https://atom.io/download/electron"
   },
   "repository": {
     "type": "git",
@@ -22,18 +26,16 @@
     "url": "https://github.com/MediaBrowser/Emby.Theater.Electron/issues"
   },
   "homepage": "https://github.com/MediaBrowser/Emby.Theater.Electron#readme",
-  "devDependencies": {
-    "power-off": "^1.0.1",
-    "sleep-mode": "^1.1.0",
-    "node-mpv": "^1.0.3",
-    "long": "^3.2.0",
-    "is-windows": "^1.0.0"
-  },
   "dependencies": {
-    "power-off": "^1.0.1",
-    "sleep-mode": "^1.1.0",
-    "node-mpv": "^1.0.3",
+    "electron": "^1.4.16",
+    "is-windows": "^1.0.0",
     "long": "^3.2.0",
-    "is-windows": "^1.0.0"
+    "node-addon-api": "^0.3.5",
+    "node-mpv": "^1.0.3",
+    "power-off": "^1.0.1",
+    "sleep-mode": "^1.1.0"
+  },
+  "devDependencies": {
+    "node-gyp": "^3.6.2"
   }
 }
