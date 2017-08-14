@@ -1,11 +1,11 @@
-define(['apphost', 'pluginManager', 'events', 'embyRouter', 'appSettings', 'loading', 'dom', 'require'], function (appHost, pluginManager, events, embyRouter, appSettings, loading, dom, require) {
+define(['apphost', 'pluginManager', 'events', 'embyRouter', 'appSettings', 'loading', 'dom', 'require', 'connectionManager'], function (appHost, pluginManager, events, embyRouter, appSettings, loading, dom, require, connectionManager) {
     'use strict';
 
     return function () {
 
         var self = this;
 
-        self.name = 'MPV Media Player';
+        self.name = 'MPV';
         self.type = 'mediaplayer';
         self.id = 'mpvmediaplayer';
         self.priority = -1;
@@ -110,22 +110,7 @@ define(['apphost', 'pluginManager', 'events', 'embyRouter', 'appSettings', 'load
             return (mediaType || '').toLowerCase() == 'audio';
         };
 
-        self.canPlayItem = function (item) {
-
-            if (item.Type != 'TvChannel') {
-                return true;
-            }
-
-            var serviceName = (item.ServiceName || '').toLowerCase();
-
-            if (serviceName.indexOf('emby') === -1 && serviceName.indexOf('wmc') === -1) {
-                return false;
-            }
-
-            return true;
-        };
-
-        self.getDeviceProfile = function () {
+        self.getDeviceProfile = function (item) {
 
             var profile = {};
 
@@ -135,11 +120,30 @@ define(['apphost', 'pluginManager', 'events', 'embyRouter', 'appSettings', 'load
 
             profile.DirectPlayProfiles = [];
 
+            var apiClient = item && item.ServerId ? connectionManager.getApiClient(item.ServerId) : null;
+            var supportsEmptyContainer = apiClient ? apiClient.isMinServerVersion('3.2.26.0') : false;
+
+            if (supportsEmptyContainer) {
+                // leave container null for all
+                profile.DirectPlayProfiles.push({
+                    Type: 'Video'
+                });
+            }
+
+            // for older servers that don't support leaving container blank
             profile.DirectPlayProfiles.push({
                 Container: 'm4v,mpegts,ts,3gp,mov,xvid,vob,mkv,wmv,asf,ogm,ogv,m2v,avi,mpg,mpeg,mp4,webm,wtv,iso,m2ts,dvr-ms',
                 Type: 'Video'
             });
 
+            if (supportsEmptyContainer) {
+                // leave container null for all
+                profile.DirectPlayProfiles.push({
+                    Type: 'Audio'
+                });
+            }
+
+            // for older servers that don't support leaving container blank
             profile.DirectPlayProfiles.push({
                 Container: 'aac,mp3,mpa,wav,wma,mp2,ogg,oga,webma,ape,opus,alac,flac,m4a',
                 Type: 'Audio'
@@ -378,10 +382,10 @@ define(['apphost', 'pluginManager', 'events', 'embyRouter', 'appSettings', 'load
                     correctdownscaling: appSettings.get('mpv-correctdownscaling') === 'true',
                     sigmoidupscaling: appSettings.get('mpv-sigmoidupscaling') === 'true',
                     deband: appSettings.get('mpv-deband') === 'true',
-                    genPts: mediaSource.RunTimeTicks ? false : true,
+                    //genPts: mediaSource.RunTimeTicks ? false : true,
                     audioDelay: parseInt(appSettings.get('mpv-audiodelay') || '0'),
                     audioDelay2325: parseInt(appSettings.get('mpv-audiodelay2325') || 0),
-                    largeCache: false
+                    largeCache: mediaSource.RunTimeTicks == null || options.item.Type === 'Recording' ? true : false
                 }
             };
 
@@ -427,17 +431,27 @@ define(['apphost', 'pluginManager', 'events', 'embyRouter', 'appSettings', 'load
             return (playerState.positionTicks || 0) / 10000;
         };
 
-        //self.supportsPlayMethod = function (playMethod, item) {
+        function seekRelative(offsetMs) {
+            sendCommand('seekrelative?val=' + (offsetMs * 10000)).then(function (state) {
 
-        //    // force these through hls so that we can seek
-        //    if (item.Type === 'TvChannel') {
-        //        if (playMethod === 'DirectStream') {
-        //            //return false;
-        //        }
-        //    }
+                events.trigger(self, 'seek');
+                onTimeUpdate(state);
+            });
+        }
 
-        //    return true;
-        //};
+        self.rewind = function (offsetMs) {
+            return seekRelative(0 - offsetMs);
+        };
+
+        self.fastForward = function (offsetMs) {
+            return seekRelative(offsetMs);
+        };
+
+        self.enableMediaProbe = function () {
+
+            // We expect to direct play everything with mpv
+            return false;
+        };
 
         self.duration = function (val) {
 
@@ -532,6 +546,11 @@ define(['apphost', 'pluginManager', 'events', 'embyRouter', 'appSettings', 'load
             return playerState.isMuted || false;
         };
 
+        self.getStats = function () {
+
+            return sendCommand('stats');
+        };
+
         var timeUpdateInterval;
         function startTimeUpdateInterval() {
             stopTimeUpdateInterval();
@@ -601,6 +620,12 @@ define(['apphost', 'pluginManager', 'events', 'embyRouter', 'appSettings', 'load
 
                 xhr.onload = function () {
                     if (this.responseText && this.status >= 200 && this.status <= 400) {
+
+                        if (name === 'stats') {
+
+                            resolve(JSON.parse(this.responseText));
+                            return;
+                        }
 
                         var state = JSON.parse(this.responseText);
                         var previousPlayerState = playerState;
